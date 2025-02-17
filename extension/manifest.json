@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "Prism CT Verifier",
+    "version": "1.0",
+    "description": "A browser extension to verify TLS certificates via decentralized CT logs using Prism.",
+    "permissions": [
+      "webRequest",
+      "webRequestBlocking",
+      "storage",
+      "<all_urls>"
+    ],
+    "background": {
+      "service_worker": "src/background.js"
+    },
+    "content_scripts": [{
+      "matches": ["<all_urls>"],
+      "js": ["src/content.js"],
+      "run_at": "document_start"
+    }],
+    "web_accessible_resources": [{
+      "resources": ["wasm/wasm_verifier_bg.wasm"],
+      "matches": ["<all_urls>"]
+    }]
+  }
+  
