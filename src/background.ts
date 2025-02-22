@@ -5,6 +5,43 @@ import { leafHashForPreCert, sctsFromCertDer } from "./ct_parsing";
 import { validateProof } from "./ct_proof_validation";
 import { DomainVerificationStore } from "./verification_store";
 
+// Store domain verification states
+const domainStates = new Map<string, boolean>();
+
+async function updateIconForDomain(domain: string, isValid: boolean | null) {
+  const iconPath = isValid === null ? {
+    16: "images/icon16_gray.png",
+    32: "images/icon32_gray.png",
+    48: "images/icon48_gray.png",
+    128: "images/icon128_gray.png"
+  } : isValid ? {
+    16: "images/icon16_valid.png",
+    32: "images/icon32_valid.png",
+    48: "images/icon48_valid.png",
+    128: "images/icon128_valid.png"
+  } : {
+    16: "images/icon16_invalid.png",
+    32: "images/icon32_invalid.png",
+    48: "images/icon48_invalid.png",
+    128: "images/icon128_invalid.png"
+  };
+
+  // Store the state if it's not null
+  if (isValid !== null) {
+    domainStates.set(domain, isValid);
+  }
+
+  const tabs = await browser.tabs.query({ url: domain + "/*" });
+  for (const tab of tabs) {
+    if (tab.id !== undefined) {
+      await browser.action.setIcon({
+        tabId: tab.id,
+        path: iconPath
+      });
+    }
+  }
+}
+
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -20,6 +57,50 @@ async function run_node() {
 }
 
 run_node();
+
+// Listen for tab activation to update icons
+browser.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    const tab = await browser.tabs.get(activeInfo.tabId);
+    if (tab.url && tab.url.startsWith('https://')) {
+      const domain = new URL(tab.url).origin;
+      // Check stored state first
+      if (domainStates.has(domain)) {
+        await updateIconForDomain(domain, domainStates.get(domain)!);
+      } else {
+        const verificationStore = await DomainVerificationStore.getInstance();
+        const verification = await verificationStore.verificationForDomain(domain);
+        const isValid = verification?.logVerifications.some(v => v.valid) ?? null;
+        await updateIconForDomain(domain, isValid);
+      }
+    } else {
+      // Non-HTTPS sites get gray icon
+      if (tab.id !== undefined) {
+        await browser.action.setIcon({
+          tabId: tab.id,
+          path: {
+            16: "images/icon16_gray.png",
+            32: "images/icon32_gray.png",
+            48: "images/icon48_gray.png",
+            128: "images/icon128_gray.png"
+          }
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error updating icon on tab switch:", error);
+  }
+});
+
+// Listen for tab updates
+browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url && tab.url.startsWith('https://')) {
+    const domain = new URL(tab.url).origin;
+    if (domainStates.has(domain)) {
+      await updateIconForDomain(domain, domainStates.get(domain)!);
+    }
+  }
+});
 
 browser.webRequest.onHeadersReceived.addListener(
   async function (details) {
@@ -38,12 +119,14 @@ browser.webRequest.onHeadersReceived.addListener(
 
       if (securityInfo.state !== "secure" && securityInfo.state !== "weak") {
         // Non-HTTPS requests can't be verified
+        await updateIconForDomain(domain, null);
         return;
       }
 
       if (securityInfo.certificates.length < 2) {
         // 0 = No certificate at all - error
         // 1 = No issuer (e.g. self signed) - can't query CT log
+        await updateIconForDomain(domain, false);
         return;
       }
 
@@ -52,11 +135,14 @@ browser.webRequest.onHeadersReceived.addListener(
 
       const ctLogStore = await CtLogStore.getInstance();
 
-      const domainVerificationStore =
-        await DomainVerificationStore.getInstance();
+      const domainVerificationStore = await DomainVerificationStore.getInstance();
       await domainVerificationStore.clearVerificationForDomain(domain);
 
+      // Set initial pending state
+      await updateIconForDomain(domain, null);
+
       const scts = sctsFromCertDer(certDer);
+      let anyValid = false;
 
       for (const sct of scts) {
         const b64LogId = b64EncodeBytes(new Uint8Array(sct.logId));
@@ -64,8 +150,9 @@ browser.webRequest.onHeadersReceived.addListener(
 
         if (log === undefined) {
           console.log("CT Log", b64LogId, "not found");
-          return;
+          continue;
         }
+        
         console.log("Cert in", log.url);
         const leafHash = await leafHashForPreCert(
           certDer,
@@ -77,10 +164,9 @@ browser.webRequest.onHeadersReceived.addListener(
         console.log(log.description, "B64 Leaf Hash:", b64LeafHash);
 
         const ctClient = new CTLogClient(log.url);
-
         // TODO: Acquire that from prism instead
+        
         const logSth = await ctClient.getSignedTreeHead();
-
         const proof = await ctClient.getProofByHash(
           b64LeafHash,
           logSth.tree_size,
@@ -98,9 +184,19 @@ browser.webRequest.onHeadersReceived.addListener(
           log.description,
           verificationResult,
         );
+
+        if (verificationResult) {
+          anyValid = true;
+          break; // Exit early if we find a valid verification
+        }
       }
+
+      // Update icon with final status
+      await updateIconForDomain(domain, anyValid);
+
     } catch (error) {
       console.error("Error validating cert:", error);
+      await updateIconForDomain(domain, false);
     }
 
     return {};

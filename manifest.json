@@ -12,7 +12,13 @@
   "permissions": ["webRequest", "webRequestBlocking"],
   "host_permissions": ["<all_urls>"],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon16_gray.png",
+      "32": "images/icon32_gray.png",
+      "48": "images/icon48_gray.png",
+      "128": "images/icon128_gray.png"
+    }
   },
   "background": {
     "scripts": ["background.js"]

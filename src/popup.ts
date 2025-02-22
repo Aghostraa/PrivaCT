@@ -17,10 +17,12 @@ document.addEventListener("DOMContentLoaded", async function () {
   const currentTab = tabs[0];
 
   if (!currentTab.url) {
+    document.body.setAttribute('data-has-content', 'false');
     return;
   }
 
   if (!currentTab.url.startsWith("https://")) {
+    document.body.setAttribute('data-has-content', 'false');
     return;
   }
 
@@ -29,11 +31,13 @@ document.addEventListener("DOMContentLoaded", async function () {
     url: currentTab.url,
   })) as DomainVerification | undefined;
 
-  domainResultsTable.replaceChildren();
-
   if (domainVerification === undefined) {
+    document.body.setAttribute('data-has-content', 'false');
     return;
   }
+
+  // Set content state to true before updating the DOM
+  document.body.setAttribute('data-has-content', 'true');
 
   domainHeadline.textContent = domainVerification.name;
   domainResultsTable.replaceChildren();
@@ -51,7 +55,13 @@ document.addEventListener("DOMContentLoaded", async function () {
     validCell.classList.add("cell", "valid-cell");
 
     const dateCell = document.createElement("div");
-    dateCell.textContent = logVerification.date.toLocaleString();
+    dateCell.textContent = new Date(logVerification.date).toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
     dateCell.classList.add("cell", "date-cell");
 
     domainRow.appendChild(nameCell);
