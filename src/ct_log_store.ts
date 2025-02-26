@@ -1,3 +1,5 @@
+import { CtLog, CtLogList, CtLogOperator } from './ct_log_types';
+
 export class CtLogStore {
   public static LOG_LIST_URL =
     "https://www.gstatic.com/ct/log_list/v3/all_logs_list.json";

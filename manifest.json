@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "manifest_version": 3,
   "description": "Trust-minimized Certificate Transparency checks using Prism",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
   "icons": {
     "16": "images/icon16.png",
     "32": "images/icon32.png",

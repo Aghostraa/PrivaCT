@@ -4,6 +4,12 @@ import { CtLogStore } from "./ct_log_store";
 import { leafHashForPreCert, sctsFromCertDer } from "./ct_parsing";
 import { validateProof } from "./ct_proof_validation";
 import { DomainVerificationStore } from "./verification_store";
+import { PrismCtClient } from "./prism_ctclient";
+import { deserializeSignedTreeHead, SignedTreeHead } from "./ct_log_types";
+
+import init, { LightClientWorker, WasmLightClient } from 'wasm-lightclient';
+
+const prism_client_url = "http://127.0.0.1:50524";
 
 // Store domain verification states
 const domainStates = new Map<string, boolean>();
@@ -46,17 +52,45 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function run_node() {
-  // TODO: Replace with actually running a prism light node
-  let i = 0;
-  while (true) {
-    await sleep(5000);
-    i += 1;
-    console.log(`Node is still running ... ${i}`);
+export async function spawnWorker() {
+  const worker = new Worker('worker.js');
+  return worker;
+}
+
+let running = false;
+let client = null;
+
+async function startLightClient() {
+  if (running) return;
+  try {
+    console.log("trying")
+    await init();
+    console.log('WASM initialized successfully');
+
+    const channel = new MessageChannel();
+
+    const worker = await spawnWorker();
+    console.log('Worker started successfully');
+
+    client = await new WasmLightClient(worker);
+    console.log('Light client connected');
+    console.log(client);
+
+    running = true;
+
+    worker.onmessage = console.log;
+    console.dir(client)
+    const commitment = await client.getCurrentCommitment();
+    console.log(commitment)
+    console.dir(worker)
+  } catch (error) {
+    console.log(`Error: ${error}`);
   }
 }
 
-run_node();
+startLightClient();
+
+
 
 // Listen for tab activation to update icons
 browser.tabs.onActivated.addListener(async (activeInfo) => {
@@ -165,6 +199,18 @@ browser.webRequest.onHeadersReceived.addListener(
 
         const ctClient = new CTLogClient(log.url);
         // TODO: Acquire that from prism instead
+        const prismClient = new PrismCtClient(prism_client_url);
+        console.log(await prismClient.fetchAccount(b64LogId));
+        const fetchedAccount = await prismClient.fetchAccount(b64LogId);
+        // console.log(fetchedAccount['account']['signed_data']['0']['data'])
+        const serializedData = atob(fetchedAccount['account']['signed_data']['0']['data']);
+        // Parse the string into a JSON object
+        const prismSTH = JSON.parse(serializedData);
+        console.log(prismSTH)
+        // console.log(prismSTH['root_hash'])
+        const rootHashPrism = b64EncodeBytes(prismSTH['root_hash']);
+        console.log('rootHashPrism',rootHashPrism);
+        
         
         const logSth = await ctClient.getSignedTreeHead();
         const proof = await ctClient.getProofByHash(
@@ -172,12 +218,36 @@ browser.webRequest.onHeadersReceived.addListener(
           logSth.tree_size,
         );
 
+        const prismProof = await ctClient.getProofByHash(
+          b64LeafHash,
+          prismSTH['tree_size']
+        );
+
+        const prismValidity = await validateProof(
+          prismProof,
+          leafHash,
+          prismSTH['root_hash']
+        );
+        console.log("prsimValidity:",prismValidity);
+        console.log('from xenon:',logSth);
+        // checking verification for that certificate
+
+        // const old_sth = {tree_size: prismSTH['tree_size'], sha256_root_hash:b64EncodeBytes(prismSTH['root_hash'])};
+        // const new_sth = {tree_size: logSth['tree_size'], sha256_root_hash: logSth['sha256_root_hash']};
+        // const consistency_proof = await ctClient.getConsistencyProof(prismSTH['tree_size'],logSth['tree_size'])
+        // console.log('cp:',consistency_proof) 
+        // const consistent = await verifyConsistency(old_sth,new_sth,consistency_proof['consistency']);
+        // console.log(consistent)
+
+
         const expectedRootHash = b64DecodeBytes(logSth.sha256_root_hash);
         const verificationResult = await validateProof(
           proof,
           leafHash,
           expectedRootHash,
         );
+
+        console.log('from xenon validity:',verificationResult);
 
         await domainVerificationStore.reportLogVerification(
           domain,

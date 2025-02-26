@@ -1,4 +1,5 @@
 import { b64DecodeBytes, b64EncodeBytes } from "./conversion";
+import { CtMerkleProof } from "./ct_log_types";
 
 /**
  * Validates a Merkle proof from a CT log server
@@ -31,6 +32,7 @@ export async function validateProof(
     return false;
   }
 }
+
 
 async function calculateRootHash(
   leafHash: Uint8Array,

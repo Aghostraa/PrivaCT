@@ -1,3 +1,5 @@
+import { CtSignedTreeHead, CtMerkleProof, CtLogEntry } from './ct_log_types';
+
 interface CtEntriesResponse {
   entries: CtLogEntry[];
 }
@@ -49,4 +51,17 @@ export class CTLogClient {
 
     return await response.json();
   }
+
+  async getConsistencyProof(
+    first: number,
+    second: number
+  ): Promise<object> {
+    const params = {
+      first: first,
+      second: second,
+    };
+    return await this.fetchJson("/ct/v1/get-sth-consistency", params);
+  }
+
+
 }
