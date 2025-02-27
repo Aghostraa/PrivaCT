@@ -1,4 +1,4 @@
-import { AccountResponse } from "./prism_types"
+import { AccountResponse, CommitmentResponse} from "./prism_types"
 export class PrismCtClient {
   constructor(private baseUrl: string) {
     // Optionally, you can validate or process the baseUrl here.
@@ -26,6 +26,24 @@ export class PrismCtClient {
     }
 
     const data: AccountResponse = await response.json();
+    return data;
+  }
+
+  // Adding functionality to get commitment
+  async getCommitment(): Promise<CommitmentResponse> {
+    const url = this.joinUrl('/get-current-commitment');
+    const response = await fetch(url, {
+      method: 'GET'
+      // headers: {
+      //   'Content-Type': 'application/json',
+      // }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch account: ${response.statusText}`);
+    }
+
+    const data: CommitmentResponse = await response.json();
     return data;
   }
 }

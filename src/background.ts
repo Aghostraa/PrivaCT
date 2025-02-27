@@ -2,10 +2,10 @@ import { b64DecodeBytes, b64EncodeBytes } from "./conversion";
 import { CTLogClient } from "./ct_log_client";
 import { CtLogStore } from "./ct_log_store";
 import { leafHashForPreCert, sctsFromCertDer } from "./ct_parsing";
-import { validateProof } from "./ct_proof_validation";
+import { validateProof, checkProofAgainstPrism} from "./ct_proof_validation";
 import { DomainVerificationStore } from "./verification_store";
 import { PrismCtClient } from "./prism_ctclient";
-import { deserializeSignedTreeHead, SignedTreeHead } from "./ct_log_types";
+import { CtMerkleProof } from "./ct_log_types";
 
 import init, { LightClientWorker, WasmLightClient } from 'wasm-lightclient';
 
@@ -80,9 +80,9 @@ async function startLightClient() {
 
     worker.onmessage = console.log;
     console.dir(client)
-    const commitment = await client.getCurrentCommitment();
-    console.log(commitment)
-    console.dir(worker)
+    // const commitment = await client.getCurrentCommitment();
+    // console.log(commitment)
+    // console.dir(worker)
   } catch (error) {
     console.log(`Error: ${error}`);
   }
@@ -200,18 +200,35 @@ browser.webRequest.onHeadersReceived.addListener(
         const ctClient = new CTLogClient(log.url);
         // TODO: Acquire that from prism instead
         const prismClient = new PrismCtClient(prism_client_url);
+        
         console.log(await prismClient.fetchAccount(b64LogId));
         const fetchedAccount = await prismClient.fetchAccount(b64LogId);
         // console.log(fetchedAccount['account']['signed_data']['0']['data'])
         const serializedData = atob(fetchedAccount['account']['signed_data']['0']['data']);
         // Parse the string into a JSON object
         const prismSTH = JSON.parse(serializedData);
-        console.log(prismSTH)
+        console.log(prismSTH);
         // console.log(prismSTH['root_hash'])
         const rootHashPrism = b64EncodeBytes(prismSTH['root_hash']);
         console.log('rootHashPrism',rootHashPrism);
         
-        
+        const latestCommitmentHex = await prismClient.getCommitment();
+        console.log(await checkProofAgainstPrism(fetchedAccount['account'],fetchedAccount['proof'],latestCommitmentHex['commitment']))
+        // const latestCommitment = hexToUint8Array(latestCommitmentHex['commitment']);
+        // const leafAccountUint = hexToUint8Array(fetchedAccount['proof']['leaf']);
+        // const siblingsBase64 = hexArrayToBase64(fetchedAccount['proof']['siblings']);
+        // const test_even : CtMerkleProof = {
+        //   leaf_index: 0,
+        //   audit_path: siblingsBase64
+        // };
+        // const test_odd : CtMerkleProof = {
+        //   leaf_index: 1,
+        //   audit_path: siblingsBase64
+        // };
+        // const merkleProofPrismEven = await validateProof(test_even,leafAccountUint,latestCommitment);
+        // const merkleProofPrismOdd = await validateProof(test_odd,leafAccountUint,latestCommitment);
+        // console.log('even:',merkleProofPrismEven);
+        // console.log('odd:',merkleProofPrismOdd);
         const logSth = await ctClient.getSignedTreeHead();
         const proof = await ctClient.getProofByHash(
           b64LeafHash,

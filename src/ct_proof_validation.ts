@@ -97,3 +97,69 @@ function areArraysEqual(arr1: Uint8Array, arr2: Uint8Array): boolean {
   }
   return arr1.every((value, index) => value === arr2[index]);
 }
+
+function hexToBytes(hex: string): Uint8Array {
+  return new Uint8Array(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+}
+
+
+async function hash(left: Uint8Array, right: Uint8Array): Promise<Uint8Array> {
+  const combined = new Uint8Array(left.length + right.length);
+  combined.set(left);
+  combined.set(right, left.length);
+
+  const digest = await crypto.subtle.digest("SHA-256", combined);
+  return new Uint8Array(digest);
+}
+
+// Hashes the account public key (valid_keys[0].bytes)
+async function hashPublicKey(publicKeyB64: string): Promise<Uint8Array> {
+  const publicKeyBytes = b64DecodeBytes(publicKeyB64);
+  const digest = await crypto.subtle.digest("SHA-256", publicKeyBytes);
+  return new Uint8Array(digest);
+}
+
+async function recomputeRoot(leafHex: string, siblings: string[], accountKeyB64: string): Promise<string> {
+  let currentHash = hexToBytes(leafHex);
+  const accountKey = await hashPublicKey(accountKeyB64);  // Public key, 32 bytes long (256 bits)
+
+  // Process each sibling hash with the corresponding bit from the key
+  for (let level = 0; level < siblings.length; level++) {
+      const siblingHash = hexToBytes(siblings[level]);
+
+      // Figure out if we're the left or right child at this level
+      const bit = (accountKey[Math.floor(level / 8)] >> (7 - (level % 8))) & 1;
+
+      if (bit === 1) {
+          // Current node is the right child, sibling is the left
+          currentHash = await hash(siblingHash, currentHash);
+      } else {
+          // Current node is the left child, sibling is the right
+          currentHash = await hash(currentHash, siblingHash);
+      }
+  }
+
+  // Convert the final root hash to hex string
+  return Array.from(currentHash).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+
+
+async function verifyProof(account: any, proof: any, fetchedRoot: string): Promise<boolean> {
+  const accountKey = account.id;
+  const recomputedRoot = await recomputeRoot(proof.leaf, proof.siblings, accountKey);
+  console.log("Recomputed root:", recomputedRoot);
+  console.log("Fetched root:", fetchedRoot);
+
+  return recomputedRoot === fetchedRoot.toLowerCase();
+}
+
+export async function checkProofAgainstPrism(account: any, proof: any, root_hash: any): Promise<boolean> {
+  const result = await verifyProof(account, proof, root_hash);
+  if (result) {
+      console.log("Proof is valid!");
+  } else {
+      console.warn("Proof is invalid!");
+  }
+  return result;
+}

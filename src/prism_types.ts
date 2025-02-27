@@ -25,3 +25,7 @@ export type AccountResponse = {
   account: Account;
   proof: Proof;
 };
+
+export type CommitmentResponse = {
+  commitment: string;
+};
