@@ -33,10 +33,7 @@ export class PrismCtClient {
   async getCommitment(): Promise<CommitmentResponse> {
     const url = this.joinUrl('/get-current-commitment');
     const response = await fetch(url, {
-      method: 'GET'
-      // headers: {
-      //   'Content-Type': 'application/json',
-      // }
+      method: 'GET',
     });
 
     if (!response.ok) {

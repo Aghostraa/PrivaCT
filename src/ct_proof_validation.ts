@@ -99,13 +99,17 @@ function areArraysEqual(arr1: Uint8Array, arr2: Uint8Array): boolean {
 }
 
 function hexToBytes(hex: string): Uint8Array {
-  return new Uint8Array(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+  }
+  return bytes;
 }
 
 
 async function hash(left: Uint8Array, right: Uint8Array): Promise<Uint8Array> {
   const combined = new Uint8Array(left.length + right.length);
-  combined.set(left);
+  combined.set(left,0);
   combined.set(right, left.length);
 
   const digest = await crypto.subtle.digest("SHA-256", combined);
@@ -119,7 +123,7 @@ async function hashPublicKey(publicKeyB64: string): Promise<Uint8Array> {
   return new Uint8Array(digest);
 }
 
-async function recomputeRoot(leafHex: string, siblings: string[], accountKeyB64: string): Promise<string> {
+async function recomputeRoot(leafHex: string, siblings: string[], accountKeyB64: string): Promise<Uint8Array> {
   let currentHash = hexToBytes(leafHex);
   const accountKey = await hashPublicKey(accountKeyB64);  // Public key, 32 bytes long (256 bits)
 
@@ -140,7 +144,8 @@ async function recomputeRoot(leafHex: string, siblings: string[], accountKeyB64:
   }
 
   // Convert the final root hash to hex string
-  return Array.from(currentHash).map(b => b.toString(16).padStart(2, '0')).join('');
+  // return Array.from(currentHash).map(b => b.toString(16).padStart(2, '0')).join('');
+  return currentHash
 }
 
 
@@ -151,7 +156,7 @@ async function verifyProof(account: any, proof: any, fetchedRoot: string): Promi
   console.log("Recomputed root:", recomputedRoot);
   console.log("Fetched root:", fetchedRoot);
 
-  return recomputedRoot === fetchedRoot.toLowerCase();
+  return Array.from(recomputedRoot).join('') === Array.from(hexToBytes(fetchedRoot)).join('');
 }
 
 export async function checkProofAgainstPrism(account: any, proof: any, root_hash: any): Promise<boolean> {

@@ -60,35 +60,35 @@ export async function spawnWorker() {
 let running = false;
 let client = null;
 
-async function startLightClient() {
-  if (running) return;
-  try {
-    console.log("trying")
-    await init();
-    console.log('WASM initialized successfully');
+// async function startLightClient() {
+//   if (running) return;
+//   try {
+//     console.log("trying")
+//     await init();
+//     console.log('WASM initialized successfully');
 
-    const channel = new MessageChannel();
+//     const channel = new MessageChannel();
 
-    const worker = await spawnWorker();
-    console.log('Worker started successfully');
+//     const worker = await spawnWorker();
+//     console.log('Worker started successfully');
 
-    client = await new WasmLightClient(worker);
-    console.log('Light client connected');
-    console.log(client);
+//     client = await new WasmLightClient(worker);
+//     console.log('Light client connected');
+//     console.log(client);
 
-    running = true;
+//     running = true;
 
-    worker.onmessage = console.log;
-    console.dir(client)
-    // const commitment = await client.getCurrentCommitment();
-    // console.log(commitment)
-    // console.dir(worker)
-  } catch (error) {
-    console.log(`Error: ${error}`);
-  }
-}
+//     worker.onmessage = console.log;
+//     console.dir(client)
+//     // const commitment = await client.getCurrentCommitment();
+//     // console.log(commitment)
+//     // console.dir(worker)
+//   } catch (error) {
+//     console.log(`Error: ${error}`);
+//   }
+// }
 
-startLightClient();
+// startLightClient();
 
 
 
@@ -176,7 +176,7 @@ browser.webRequest.onHeadersReceived.addListener(
       await updateIconForDomain(domain, null);
 
       const scts = sctsFromCertDer(certDer);
-      let anyValid = false;
+      let STHValid = false;
 
       for (const sct of scts) {
         const b64LogId = b64EncodeBytes(new Uint8Array(sct.logId));
@@ -203,32 +203,14 @@ browser.webRequest.onHeadersReceived.addListener(
         
         console.log(await prismClient.fetchAccount(b64LogId));
         const fetchedAccount = await prismClient.fetchAccount(b64LogId);
-        // console.log(fetchedAccount['account']['signed_data']['0']['data'])
         const serializedData = atob(fetchedAccount['account']['signed_data']['0']['data']);
         // Parse the string into a JSON object
         const prismSTH = JSON.parse(serializedData);
-        console.log(prismSTH);
         // console.log(prismSTH['root_hash'])
         const rootHashPrism = b64EncodeBytes(prismSTH['root_hash']);
-        console.log('rootHashPrism',rootHashPrism);
         
-        const latestCommitmentHex = await prismClient.getCommitment();
-        console.log(await checkProofAgainstPrism(fetchedAccount['account'],fetchedAccount['proof'],latestCommitmentHex['commitment']))
-        // const latestCommitment = hexToUint8Array(latestCommitmentHex['commitment']);
-        // const leafAccountUint = hexToUint8Array(fetchedAccount['proof']['leaf']);
-        // const siblingsBase64 = hexArrayToBase64(fetchedAccount['proof']['siblings']);
-        // const test_even : CtMerkleProof = {
-        //   leaf_index: 0,
-        //   audit_path: siblingsBase64
-        // };
-        // const test_odd : CtMerkleProof = {
-        //   leaf_index: 1,
-        //   audit_path: siblingsBase64
-        // };
-        // const merkleProofPrismEven = await validateProof(test_even,leafAccountUint,latestCommitment);
-        // const merkleProofPrismOdd = await validateProof(test_odd,leafAccountUint,latestCommitment);
-        // console.log('even:',merkleProofPrismEven);
-        // console.log('odd:',merkleProofPrismOdd);
+        // const latestCommitmentHex = await prismClient.getCommitment();
+
         const logSth = await ctClient.getSignedTreeHead();
         const proof = await ctClient.getProofByHash(
           b64LeafHash,
@@ -240,46 +222,39 @@ browser.webRequest.onHeadersReceived.addListener(
           prismSTH['tree_size']
         );
 
-        const prismValidity = await validateProof(
+        const prismSTHValidity = await validateProof(
           prismProof,
           leafHash,
           prismSTH['root_hash']
         );
-        console.log("prsimValidity:",prismValidity);
-        console.log('from xenon:',logSth);
-        // checking verification for that certificate
-
-        // const old_sth = {tree_size: prismSTH['tree_size'], sha256_root_hash:b64EncodeBytes(prismSTH['root_hash'])};
-        // const new_sth = {tree_size: logSth['tree_size'], sha256_root_hash: logSth['sha256_root_hash']};
-        // const consistency_proof = await ctClient.getConsistencyProof(prismSTH['tree_size'],logSth['tree_size'])
-        // console.log('cp:',consistency_proof) 
-        // const consistent = await verifyConsistency(old_sth,new_sth,consistency_proof['consistency']);
-        // console.log(consistent)
+        console.log("prismValidity:",prismSTHValidity);
 
 
         const expectedRootHash = b64DecodeBytes(logSth.sha256_root_hash);
-        const verificationResult = await validateProof(
+        const CTLogsValidity = await validateProof(
           proof,
           leafHash,
           expectedRootHash,
         );
 
-        console.log('from xenon validity:',verificationResult);
+        console.log('from xenon validity:',CTLogsValidity);
 
         await domainVerificationStore.reportLogVerification(
           domain,
           log.description,
-          verificationResult,
+          CTLogsValidity,
         );
 
-        if (verificationResult) {
-          anyValid = true;
-          break; // Exit early if we find a valid verification
-        }
+
+        if (prismSTHValidity && CTLogsValidity) {
+          STHValid = true;
+      } else {
+          break; // break early if a sct has failed
+      }
       }
 
       // Update icon with final status
-      await updateIconForDomain(domain, anyValid);
+      await updateIconForDomain(domain, STHValid);
 
     } catch (error) {
       console.error("Error validating cert:", error);
