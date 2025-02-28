@@ -1,5 +1,5 @@
 {
-  "name": "Certificate Transparency with prism",
+  "name": "PrivaCT - Certificate Transparency",
   "version": "0.0.1",
   "manifest_version": 3,
   "description": "Trust-minimized Certificate Transparency checks using Prism",
