@@ -7,7 +7,7 @@ import { DomainVerificationStore } from "./verification_store";
 import { PrismCtClient } from "./prism_ctclient";
 import { CtMerkleProof } from "./ct_log_types";
 
-import init, { LightClientWorker, WasmLightClient } from 'wasm-lightclient';
+// import init, { LightClientWorker, WasmLightClient } from 'wasm-lightclient';
 
 const prism_client_url = "http://127.0.0.1:50524";
 
@@ -177,84 +177,89 @@ browser.webRequest.onHeadersReceived.addListener(
 
       const scts = sctsFromCertDer(certDer);
       let STHValid = false;
+      let hasInvalidCert = false; // Add this flag
 
       for (const sct of scts) {
-        const b64LogId = b64EncodeBytes(new Uint8Array(sct.logId));
-        const log = ctLogStore.getLogById(b64LogId);
+        try {
+          const b64LogId = b64EncodeBytes(new Uint8Array(sct.logId));
+          const log = ctLogStore.getLogById(b64LogId);
 
-        if (log === undefined) {
-          console.log("CT Log", b64LogId, "not found");
-          continue;
+          if (log === undefined) {
+            console.log("CT Log", b64LogId, "not found");
+            continue;
+          }
+          
+          console.log("Cert in", log.url);
+          const leafHash = await leafHashForPreCert(
+            certDer,
+            issuerDer,
+            sct.timestamp,
+            new Uint8Array(sct.extensions),
+          );
+          const b64LeafHash = b64EncodeBytes(leafHash);
+          console.log(log.description, "B64 Leaf Hash:", b64LeafHash);
+
+          const ctClient = new CTLogClient(log.url);
+          // TODO: Acquire that from prism instead
+          const prismClient = new PrismCtClient(prism_client_url);
+          
+          console.log(await prismClient.fetchAccount(b64LogId));
+          const fetchedAccount = await prismClient.fetchAccount(b64LogId);
+          const serializedData = atob(fetchedAccount['account']['signed_data']['0']['data']);
+          // Parse the string into a JSON object
+          const prismSTH = JSON.parse(serializedData);
+          // console.log(prismSTH['root_hash'])
+          const rootHashPrism = b64EncodeBytes(prismSTH['root_hash']);
+          
+          // const latestCommitmentHex = await prismClient.getCommitment();
+
+          const logSth = await ctClient.getSignedTreeHead();
+          const proof = await ctClient.getProofByHash(
+            b64LeafHash,
+            logSth.tree_size,
+          );
+
+          const prismProof = await ctClient.getProofByHash(
+            b64LeafHash,
+            prismSTH['tree_size']
+          );
+
+          const prismSTHValidity = await validateProof(
+            prismProof,
+            leafHash,
+            prismSTH['root_hash']
+          );
+          console.log("prismValidity:",prismSTHValidity);
+
+
+          const expectedRootHash = b64DecodeBytes(logSth.sha256_root_hash);
+          const CTLogsValidity = await validateProof(
+            proof,
+            leafHash,
+            expectedRootHash,
+          );
+
+          console.log('from xenon validity:',CTLogsValidity);
+
+          await domainVerificationStore.reportLogVerification(
+            domain,
+            log.description,
+            CTLogsValidity && prismSTHValidity
+          );
+
+          if (prismSTHValidity && CTLogsValidity) {
+            STHValid = true;
+          } else {
+            hasInvalidCert = true; // Set flag if any cert is invalid
+          }
+        } catch (error) {
+          console.error("Error validating SCT:", error);
+          hasInvalidCert = true;
         }
-        
-        console.log("Cert in", log.url);
-        const leafHash = await leafHashForPreCert(
-          certDer,
-          issuerDer,
-          sct.timestamp,
-          new Uint8Array(sct.extensions),
-        );
-        const b64LeafHash = b64EncodeBytes(leafHash);
-        console.log(log.description, "B64 Leaf Hash:", b64LeafHash);
-
-        const ctClient = new CTLogClient(log.url);
-        // TODO: Acquire that from prism instead
-        const prismClient = new PrismCtClient(prism_client_url);
-        
-        console.log(await prismClient.fetchAccount(b64LogId));
-        const fetchedAccount = await prismClient.fetchAccount(b64LogId);
-        const serializedData = atob(fetchedAccount['account']['signed_data']['0']['data']);
-        // Parse the string into a JSON object
-        const prismSTH = JSON.parse(serializedData);
-        // console.log(prismSTH['root_hash'])
-        const rootHashPrism = b64EncodeBytes(prismSTH['root_hash']);
-        
-        // const latestCommitmentHex = await prismClient.getCommitment();
-
-        const logSth = await ctClient.getSignedTreeHead();
-        const proof = await ctClient.getProofByHash(
-          b64LeafHash,
-          logSth.tree_size,
-        );
-
-        const prismProof = await ctClient.getProofByHash(
-          b64LeafHash,
-          prismSTH['tree_size']
-        );
-
-        const prismSTHValidity = await validateProof(
-          prismProof,
-          leafHash,
-          prismSTH['root_hash']
-        );
-        console.log("prismValidity:",prismSTHValidity);
-
-
-        const expectedRootHash = b64DecodeBytes(logSth.sha256_root_hash);
-        const CTLogsValidity = await validateProof(
-          proof,
-          leafHash,
-          expectedRootHash,
-        );
-
-        console.log('from xenon validity:',CTLogsValidity);
-
-        await domainVerificationStore.reportLogVerification(
-          domain,
-          log.description,
-          CTLogsValidity,
-        );
-
-
-        if (prismSTHValidity && CTLogsValidity) {
-          STHValid = true;
-      } else {
-          break; // break early if a sct has failed
-      }
       }
 
-      // Update icon with final status
-      await updateIconForDomain(domain, STHValid);
+      // Only show valid if we have at least one valid cert AND no invalid certs
+      await updateIconForDomain(domain, STHValid && !hasInvalidCert);
 
     } catch (error) {
       console.error("Error validating cert:", error);

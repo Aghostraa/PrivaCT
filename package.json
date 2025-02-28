@@ -24,6 +24,7 @@
     "@peculiar/asn1-cert-transparency": "^2.3.13",
     "@peculiar/asn1-schema": "^2.3.13",
     "@peculiar/asn1-x509": "^2.3.13",
+    "build": "^0.1.4",
     "wasm-lightclient": "file:../prism/crates/node_types/wasm-lightclient/pkg"
   },
   "main": "resize-icons.js",

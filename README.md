@@ -17,6 +17,13 @@ In the project directory
 
     npm install
 
+### Run full node and CT-Service
+
+git clone https://github.com/deltadevsde/prism-service-example
+    cd prism-service-example
+    cargo run
+    
+
 ### Running the extension
 Build the extension with
 
