@@ -1,10 +1,9 @@
-# Prism Certificate Transparency Browser Extension
+# PrivaCT
 
-Trust-minimized Certificate Transparency checks using Prism
+PrivaCT is a Browser Extension which uses Prism to ensure Trust-minimized Certificate Transparency.
 
 ### Browser compatibility
 - Firefox ≥109 ✅ (extension manifest v3)
-- Chrome ❌ (no ETA)
 
 ## Development setup
 
@@ -36,7 +35,11 @@ Next we need to run a service which fetches CT logs and puts them in Prism. This
 
 ```sh
     git clone https://github.com/MmithridatesS/ct-service-v2.git
+```
+```sh
     cd ct-service-v2
+```
+```sh
     cargo run
 ```
 
@@ -48,10 +51,15 @@ would be running in the backend, thereby freeing the user of these steps.
 Once the Prism Full Node is running the user and the service has also been running for a while. The extension is ready to use,
 which can be done by using the following steps in the project directory:
 
+```sh
     npm run build
+```
+```sh
     cd dist
+```
+```sh
     web-ext run --devtools
+```
 
 [nodejs]: https://nodejs.org/
 [webext]: https://github.com/mozilla/web-ext/
-[getsecurityinfo]: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/getSecurityInfo
