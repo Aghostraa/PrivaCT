@@ -48,7 +48,7 @@ would be running in the backend, thereby freeing the user of these steps.
     
 
 ### Running the extension
-Once the Prism Full Node is running the user and the service has also been running for a while. The extension is ready to use,
+Once the Prism full node is running, and the service has also been running for a while. The extension is ready to use,
 which can be done by using the following steps in the project directory:
 
 ```sh
