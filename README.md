@@ -1,6 +1,6 @@
 # PrivaCT
 
-PrivaCT is a Browser Extension which uses Prism to ensure Trust-minimized Certificate Transparency.
+PrivaCT is a Browser Extension which uses [Prism](https://www.prism.rs) to ensure Trust-minimized Certificate Transparency.
 
 ### Browser compatibility
 - Firefox ≥109 ✅ (extension manifest v3)
