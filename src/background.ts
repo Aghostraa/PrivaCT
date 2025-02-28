@@ -5,7 +5,7 @@ import { leafHashForPreCert, sctsFromCertDer } from "./ct_parsing";
 import { validateProof, checkProofAgainstPrism} from "./ct_proof_validation";
 import { DomainVerificationStore } from "./verification_store";
 import { PrismCtClient } from "./prism_ctclient";
-import { CtMerkleProof } from "./ct_log_types";
+import { CtMerkleProof,CtSignedTreeHead } from "./ct_log_types";
 
 // import init, { LightClientWorker, WasmLightClient } from 'wasm-lightclient';
 
@@ -178,7 +178,7 @@ browser.webRequest.onHeadersReceived.addListener(
       const scts = sctsFromCertDer(certDer);
       let STHValid = false;
       let hasInvalidCert = false; // Add this flag
-
+      console.log(scts.length);
       for (const sct of scts) {
         try {
           const b64LogId = b64EncodeBytes(new Uint8Array(sct.logId));
@@ -206,14 +206,6 @@ browser.webRequest.onHeadersReceived.addListener(
           console.log(await prismClient.fetchAccount(b64LogId));
           const fetchedAccount = await prismClient.fetchAccount(b64LogId);
           const serializedData = atob(fetchedAccount['account']['signed_data']['0']['data']);
-          if (!serializedData) {
-            hasInvalidCert = true;
-            await domainVerificationStore.reportLogVerification(
-              domain, 
-              log.description,
-              false
-            );
-          } else {
           // Parse the string into a JSON object
           const prismSTH = JSON.parse(serializedData);
           // console.log(prismSTH['root_hash'])
@@ -221,18 +213,14 @@ browser.webRequest.onHeadersReceived.addListener(
           
           // const latestCommitmentHex = await prismClient.getCommitment();
 
-            let logSth;
-            try {
+          let logSth: CtSignedTreeHead;
+          try {
             logSth = await ctClient.getSignedTreeHead();
-            } catch (error) {
-            console.error("Failed to fetch SignedTreeHead:", error);
-            await domainVerificationStore.reportLogVerification(
-              domain,
-              log.description,
-              false
-            );
+          } catch (error) {
+            await updateIconForDomain(domain, false);
             continue;
-            }
+          }
+          
           const proof = await ctClient.getProofByHash(
             b64LeafHash,
             logSth.tree_size,
@@ -258,7 +246,7 @@ browser.webRequest.onHeadersReceived.addListener(
             expectedRootHash,
           );
 
-          console.log('from xenon validity:',CTLogsValidity);
+          console.log('from CT log provider validity:',CTLogsValidity);
 
           await domainVerificationStore.reportLogVerification(
             domain,
@@ -271,8 +259,6 @@ browser.webRequest.onHeadersReceived.addListener(
           } else {
             hasInvalidCert = true; // Set flag if any cert is invalid
           }
-        }
-
         } catch (error) {
           console.error("Error validating SCT:", error);
           hasInvalidCert = true;
