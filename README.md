@@ -1,32 +1,50 @@
-# PrivaCT
+# PrivaCT: Trust-Minimized Certificate Transparency  
 
-PrivaCT is a Browser Extension which uses [Prism](https://www.prism.rs) to ensure Trust-minimized Certificate Transparency.
+**PrivaCT** is a browser extension that leverages **Prism** to deliver trust-minimized Certificate Transparency (CT) directly to users.  
 
-## Background 📖
+---
 
-When you visit a website, your browser establishes a secure connection using TLS certificates issued by trusted certificate authorities (CAs). These certificates prove that the site is authentic. However, certificate authorities have a history of being compromised or issuing certificates improperly. This can lead to man-in-the-middle attacks, phishing sites looking perfectly valid, or government surveillance programs abusing misissued certificates. To combat this, the concept of Certificate Transparency (CT) was introduced. The idea is that every certificate issued by a CA should be publicly logged in an append-only, tamper-proof transparency log. But there’s still a gap — as a user visiting a website, how do you know that the certificate you’re seeing has actually been properly logged in one of these transparency logs? That’s where this extension comes in.
+## **Background** 📖  
 
+When you visit a website, your browser establishes a secure connection using TLS certificates issued by trusted Certificate Authorities (CAs). These certificates verify the site’s authenticity. However, CAs have a history of being compromised or issuing certificates improperly, leading to risks like man-in-the-middle attacks, phishing sites appearing legitimate, or even government surveillance programs exploiting misissued certificates.  
 
-## Goal 🎯
+To address these issues, **Certificate Transparency (CT)** was introduced. CT requires that every certificate issued by a CA be publicly logged in an append-only, tamper-proof transparency log. But here’s the catch: as a user, how do you know if the certificate you’re seeing has actually been logged in one of these transparency logs? This is where **PrivaCT** steps in.  
 
-The purpose of this project is to enable everyday users to automatically and transparently check whether a website’s certificate is properly logged in the a Prism based transparency system — right from their browser. This brings the benefits of decentralized, trust-minimized certificate transparency directly to end users. 
+---
 
-## Architecture 🏛️
+## **Goal** 🎯  
 
-The system consists of three key components:
+The goal of PrivaCT is to empower everyday users by automatically and transparently verifying whether a website’s certificate is properly logged in a **Prism-based transparency system** — all from within their browser. This brings the benefits of decentralized, trust-minimized certificate transparency directly to end users.  
 
-* A Prism devnet, which acts as a distributed, transparent store for certificates.
-* A CT Service, which continuously fetches certificates from transparency logs and submits them to Prism.
-* The Browser Extension, which is responsible for verifying certificates directly against the Prism devnet whenever the user visits a website.
+---
 
-## Browser Extension Workflow ⚙️⚙
+## **Architecture** 🏛️  
 
-1. When the user navigates to a website, the extension triggers a background check that extracts the site’s TLS certificate using an API in Firefox.
-1. Queries the Prism Full Node to retrieve a Merkle Proof for the certificate  
-1. Fetches the latest root hash from Prism to ensure it’s working with an up-to-date view of the transparency log.
-1. Verifies the proof using an inclusion proof directly inside the extension.
-1. Validates both the Merkle proof from the CA as well as from prism
-1. Finally, it updates the browser action icon — green if the certificate is valid and logged, red if the certificate fails the check or is missing.
+The system is built on three core components:  
+
+1. **Prism Devnet**: A distributed, transparent store for certificates.  
+2. **CT Service**: Continuously fetches certificates from transparency logs and submits them to Prism.  
+3. **Browser Extension**: Verifies certificates directly against the Prism Devnet whenever a user visits a website.  
+
+---
+
+## **Browser Extension Workflow** ⚙️  
+
+Here’s how the extension works:  
+
+1. When a user navigates to a website, the extension triggers a background check.  
+2. It extracts the site’s TLS certificate using a Firefox API.  
+3. The extension queries the **Prism Full Node** to retrieve a **Merkle Proof** for the certificate.  
+4. It fetches the latest **root hash** from Prism to ensure it’s working with an up-to-date view of the transparency log.  
+5. The extension verifies the proof using an **inclusion proof** directly within the browser.  
+6. It validates both the **Merkle proof** from the CA and the proof from Prism.  
+7. Finally, it updates the browser action icon:  
+   - **Green**: The certificate is valid and logged.  
+   - **Red**: The certificate fails the check or is missing.  
+
+---
+
+PrivaCT bridges the gap between Certificate Transparency and user trust, ensuring a safer and more transparent browsing experience.
 
 ## Development setup 👨‍💻
 
