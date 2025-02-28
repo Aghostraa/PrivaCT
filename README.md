@@ -10,21 +10,27 @@ Trust-minimized Certificate Transparency checks using Prism
 
 ### Requirements
 - [Nodejs][nodejs]
-- Firefox Browser
 - [Web-ext CLI][webext] (for Firefox)
 
 ### Install Dependencies
 In the project directory
-
+```sh
     npm install
+```
 
 ### Run full node and CT-Service
 
 To run the browser extension it is necessary to run a Prism full node locally. This can be done using the following steps:
 
+```sh
     git clone https://github.com/deltadevsde/prism-service-example
+```
+```sh
     cd prism-service-example
+```
+```sh
     cargo run
+```
 
 Next we need to run a service which fetches CT logs and puts them in Prism. This can be done by using the following commands:
 
