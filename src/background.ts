@@ -206,6 +206,14 @@ browser.webRequest.onHeadersReceived.addListener(
           console.log(await prismClient.fetchAccount(b64LogId));
           const fetchedAccount = await prismClient.fetchAccount(b64LogId);
           const serializedData = atob(fetchedAccount['account']['signed_data']['0']['data']);
+          if (!serializedData) {
+            hasInvalidCert = true;
+            await domainVerificationStore.reportLogVerification(
+              domain, 
+              log.description,
+              false
+            );
+          } else {
           // Parse the string into a JSON object
           const prismSTH = JSON.parse(serializedData);
           // console.log(prismSTH['root_hash'])
@@ -213,7 +221,18 @@ browser.webRequest.onHeadersReceived.addListener(
           
           // const latestCommitmentHex = await prismClient.getCommitment();
 
-          const logSth = await ctClient.getSignedTreeHead();
+            let logSth;
+            try {
+            logSth = await ctClient.getSignedTreeHead();
+            } catch (error) {
+            console.error("Failed to fetch SignedTreeHead:", error);
+            await domainVerificationStore.reportLogVerification(
+              domain,
+              log.description,
+              false
+            );
+            continue;
+            }
           const proof = await ctClient.getProofByHash(
             b64LeafHash,
             logSth.tree_size,
@@ -252,6 +271,8 @@ browser.webRequest.onHeadersReceived.addListener(
           } else {
             hasInvalidCert = true; // Set flag if any cert is invalid
           }
+        }
+
         } catch (error) {
           console.error("Error validating SCT:", error);
           hasInvalidCert = true;
