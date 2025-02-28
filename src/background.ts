@@ -2,8 +2,14 @@ import { b64DecodeBytes, b64EncodeBytes } from "./conversion";
 import { CTLogClient } from "./ct_log_client";
 import { CtLogStore } from "./ct_log_store";
 import { leafHashForPreCert, sctsFromCertDer } from "./ct_parsing";
-import { validateProof } from "./ct_proof_validation";
+import { validateProof, checkProofAgainstPrism} from "./ct_proof_validation";
 import { DomainVerificationStore } from "./verification_store";
+import { PrismCtClient } from "./prism_ctclient";
+import { CtMerkleProof } from "./ct_log_types";
+
+import init, { LightClientWorker, WasmLightClient } from 'wasm-lightclient';
+
+const prism_client_url = "http://127.0.0.1:50524";
 
 // Store domain verification states
 const domainStates = new Map<string, boolean>();
@@ -46,17 +52,45 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function run_node() {
-  // TODO: Replace with actually running a prism light node
-  let i = 0;
-  while (true) {
-    await sleep(5000);
-    i += 1;
-    console.log(`Node is still running ... ${i}`);
-  }
+export async function spawnWorker() {
+  const worker = new Worker('worker.js');
+  return worker;
 }
 
-run_node();
+let running = false;
+let client = null;
+
+// async function startLightClient() {
+//   if (running) return;
+//   try {
+//     console.log("trying")
+//     await init();
+//     console.log('WASM initialized successfully');
+
+//     const channel = new MessageChannel();
+
+//     const worker = await spawnWorker();
+//     console.log('Worker started successfully');
+
+//     client = await new WasmLightClient(worker);
+//     console.log('Light client connected');
+//     console.log(client);
+
+//     running = true;
+
+//     worker.onmessage = console.log;
+//     console.dir(client)
+//     // const commitment = await client.getCurrentCommitment();
+//     // console.log(commitment)
+//     // console.dir(worker)
+//   } catch (error) {
+//     console.log(`Error: ${error}`);
+//   }
+// }
+
+// startLightClient();
+
+
 
 // Listen for tab activation to update icons
 browser.tabs.onActivated.addListener(async (activeInfo) => {
@@ -142,7 +176,7 @@ browser.webRequest.onHeadersReceived.addListener(
       await updateIconForDomain(domain, null);
 
       const scts = sctsFromCertDer(certDer);
-      let anyValid = false;
+      let STHValid = false;
 
       for (const sct of scts) {
         const b64LogId = b64EncodeBytes(new Uint8Array(sct.logId));
@@ -165,34 +199,62 @@ browser.webRequest.onHeadersReceived.addListener(
 
         const ctClient = new CTLogClient(log.url);
         // TODO: Acquire that from prism instead
+        const prismClient = new PrismCtClient(prism_client_url);
         
+        console.log(await prismClient.fetchAccount(b64LogId));
+        const fetchedAccount = await prismClient.fetchAccount(b64LogId);
+        const serializedData = atob(fetchedAccount['account']['signed_data']['0']['data']);
+        // Parse the string into a JSON object
+        const prismSTH = JSON.parse(serializedData);
+        // console.log(prismSTH['root_hash'])
+        const rootHashPrism = b64EncodeBytes(prismSTH['root_hash']);
+        
+        // const latestCommitmentHex = await prismClient.getCommitment();
+
         const logSth = await ctClient.getSignedTreeHead();
         const proof = await ctClient.getProofByHash(
           b64LeafHash,
           logSth.tree_size,
         );
 
+        const prismProof = await ctClient.getProofByHash(
+          b64LeafHash,
+          prismSTH['tree_size']
+        );
+
+        const prismSTHValidity = await validateProof(
+          prismProof,
+          leafHash,
+          prismSTH['root_hash']
+        );
+        console.log("prismValidity:",prismSTHValidity);
+
+
         const expectedRootHash = b64DecodeBytes(logSth.sha256_root_hash);
-        const verificationResult = await validateProof(
+        const CTLogsValidity = await validateProof(
           proof,
           leafHash,
           expectedRootHash,
         );
 
+        console.log('from xenon validity:',CTLogsValidity);
+
         await domainVerificationStore.reportLogVerification(
           domain,
           log.description,
-          verificationResult,
+          CTLogsValidity,
         );
 
-        if (verificationResult) {
-          anyValid = true;
-          break; // Exit early if we find a valid verification
-        }
+
+        if (prismSTHValidity && CTLogsValidity) {
+          STHValid = true;
+      } else {
+          break; // break early if a sct has failed
+      }
       }
 
       // Update icon with final status
-      await updateIconForDomain(domain, anyValid);
+      await updateIconForDomain(domain, STHValid);
 
     } catch (error) {
       console.error("Error validating cert:", error);
