@@ -161,7 +161,6 @@ browser.webRequest.onHeadersReceived.addListener(
             new Uint8Array(sct.extensions),
           );
           const b64LeafHash = b64EncodeBytes(leafHash);
-          console.log(log.description, "B64 Leaf Hash:", b64LeafHash);
 
           const ctClient = new CTLogClient(log.url);
           const prismClient = new PrismCtClient(prism_client_url);
@@ -214,7 +213,7 @@ browser.webRequest.onHeadersReceived.addListener(
             expectedRootHash,
           );
 
-          console.log('from CT log provider validity:',CTLogsValidity);
+          console.log('Validity from CT log provider :',CTLogsValidity);
 
           await domainVerificationStore.reportLogVerification(
             domain,
