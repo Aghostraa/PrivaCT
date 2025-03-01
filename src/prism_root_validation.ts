@@ -68,7 +68,6 @@ export async function verifyJmtProof(
             "SHA-256",
             new TextEncoder().encode(key)
         );
-        console.log("addresshash", addressHash)
         const addrBytes = new Uint8Array(addressHash);
 
         // Convert address to bit array
