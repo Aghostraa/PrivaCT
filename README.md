@@ -81,7 +81,7 @@ which can be done by using the following steps in the project directory:
     cd dist
 ```
 ```sh
-    web-ext run --devtools
+    web-ext run
 ```
 
 [nodejs]: https://nodejs.org/
