@@ -6,6 +6,7 @@ import { validateProof, checkProofAgainstPrism} from "./ct_proof_validation";
 import { DomainVerificationStore } from "./verification_store";
 import { PrismCtClient } from "./prism_ctclient";
 import { CtMerkleProof,CtSignedTreeHead } from "./ct_log_types";
+import { verifyJmtProof } from "./prism_root_validation";
 
 // import init, { LightClientWorker, WasmLightClient } from 'wasm-lightclient';
 
@@ -178,7 +179,7 @@ browser.webRequest.onHeadersReceived.addListener(
       const scts = sctsFromCertDer(certDer);
       let STHValid = false;
       let hasInvalidCert = false; // Add this flag
-      console.log(scts.length);
+      let prism_chain_validity = true;
       for (const sct of scts) {
         try {
           const b64LogId = b64EncodeBytes(new Uint8Array(sct.logId));
@@ -188,7 +189,7 @@ browser.webRequest.onHeadersReceived.addListener(
             console.log("CT Log", b64LogId, "not found");
             continue;
           }
-          
+
           console.log("Cert in", log.url);
           const leafHash = await leafHashForPreCert(
             certDer,
@@ -200,17 +201,26 @@ browser.webRequest.onHeadersReceived.addListener(
           console.log(log.description, "B64 Leaf Hash:", b64LeafHash);
 
           const ctClient = new CTLogClient(log.url);
-          // TODO: Acquire that from prism instead
           const prismClient = new PrismCtClient(prism_client_url);
-          
           console.log(await prismClient.fetchAccount(b64LogId));
+
+          const fetchedCommitmentOne = await prismClient.getCommitment();
           const fetchedAccount = await prismClient.fetchAccount(b64LogId);
+          const fetchedCommitmentTwo = await prismClient.getCommitment();
+
+
+          if (fetchedCommitmentOne.commitment !== fetchedCommitmentTwo.commitment) {
+            console.log("Commitments changed during account fetch, reload webpage")
+          } else {
+            let prism_chain_validity = await verifyJmtProof(fetchedAccount.account.id, fetchedAccount.proof.leaf, fetchedAccount.proof.siblings, fetchedCommitmentTwo.commitment)
+            console.log("prism root verification successful")
+          }
+
           const serializedData = atob(fetchedAccount['account']['signed_data']['0']['data']);
           // Parse the string into a JSON object
           const prismSTH = JSON.parse(serializedData);
           // console.log(prismSTH['root_hash'])
           const rootHashPrism = b64EncodeBytes(prismSTH['root_hash']);
-          
           // const latestCommitmentHex = await prismClient.getCommitment();
 
           let logSth: CtSignedTreeHead;
@@ -220,7 +230,6 @@ browser.webRequest.onHeadersReceived.addListener(
             await updateIconForDomain(domain, false);
             continue;
           }
-          
           const proof = await ctClient.getProofByHash(
             b64LeafHash,
             logSth.tree_size,
@@ -266,7 +275,7 @@ browser.webRequest.onHeadersReceived.addListener(
       }
 
       // Only show valid if we have at least one valid cert AND no invalid certs
-      await updateIconForDomain(domain, STHValid && !hasInvalidCert);
+      await updateIconForDomain(domain, STHValid && !hasInvalidCert && prism_chain_validity);
 
     } catch (error) {
       console.error("Error validating cert:", error);

@@ -14,6 +14,7 @@
   "devDependencies": {
     "@types/chrome": "^0.0.281",
     "@types/firefox-webext-browser": "^120.0.4",
+    "@types/node": "^22.13.7",
     "copy-webpack-plugin": "^12.0.2",
     "ts-loader": "^9.5.1",
     "typescript": "^5.6.3",
@@ -25,6 +26,7 @@
     "@peculiar/asn1-schema": "^2.3.13",
     "@peculiar/asn1-x509": "^2.3.13",
     "build": "^0.1.4",
+    "crypto-browserify": "^3.12.1",
     "wasm-lightclient": "file:../prism/crates/node_types/wasm-lightclient/pkg"
   },
   "main": "resize-icons.js",
