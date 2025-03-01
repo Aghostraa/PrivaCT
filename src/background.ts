@@ -175,8 +175,8 @@ browser.webRequest.onHeadersReceived.addListener(
             prism_chain_validity = await verifyJmtProof(fetchedAccount.account.id, fetchedAccount.proof.leaf, fetchedAccount.proof.siblings, fetchedCommitmentTwo.commitment)
             console.log("prism root verification successful")
           }
-
-          const serializedData = atob(fetchedAccount['account']['signed_data']['0']['data']);
+          const lastElement = (fetchedAccount['account']['signed_data'].length - 1).toString()
+          const serializedData = atob(fetchedAccount['account']['signed_data'][lastElement]['data']);
           // Parse the string into a JSON object
           const prismSTH = JSON.parse(serializedData);
           const rootHashPrism = b64EncodeBytes(prismSTH['root_hash']);
