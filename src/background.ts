@@ -2,13 +2,11 @@ import { b64DecodeBytes, b64EncodeBytes } from "./conversion";
 import { CTLogClient } from "./ct_log_client";
 import { CtLogStore } from "./ct_log_store";
 import { leafHashForPreCert, sctsFromCertDer } from "./ct_parsing";
-import { validateProof, checkProofAgainstPrism} from "./ct_proof_validation";
+import { validateProof} from "./ct_proof_validation";
 import { DomainVerificationStore } from "./verification_store";
 import { PrismCtClient } from "./prism_ctclient";
-import { CtMerkleProof,CtSignedTreeHead } from "./ct_log_types";
+import { CtSignedTreeHead } from "./ct_log_types";
 import { verifyJmtProof } from "./prism_root_validation";
-
-// import init, { LightClientWorker, WasmLightClient } from 'wasm-lightclient';
 
 const prism_client_url = "http://127.0.0.1:50524";
 
@@ -57,41 +55,6 @@ export async function spawnWorker() {
   const worker = new Worker('worker.js');
   return worker;
 }
-
-let running = false;
-let client = null;
-
-// async function startLightClient() {
-//   if (running) return;
-//   try {
-//     console.log("trying")
-//     await init();
-//     console.log('WASM initialized successfully');
-
-//     const channel = new MessageChannel();
-
-//     const worker = await spawnWorker();
-//     console.log('Worker started successfully');
-
-//     client = await new WasmLightClient(worker);
-//     console.log('Light client connected');
-//     console.log(client);
-
-//     running = true;
-
-//     worker.onmessage = console.log;
-//     console.dir(client)
-//     // const commitment = await client.getCurrentCommitment();
-//     // console.log(commitment)
-//     // console.dir(worker)
-//   } catch (error) {
-//     console.log(`Error: ${error}`);
-//   }
-// }
-
-// startLightClient();
-
-
 
 // Listen for tab activation to update icons
 browser.tabs.onActivated.addListener(async (activeInfo) => {
@@ -202,8 +165,6 @@ browser.webRequest.onHeadersReceived.addListener(
 
           const ctClient = new CTLogClient(log.url);
           const prismClient = new PrismCtClient(prism_client_url);
-          console.log(await prismClient.fetchAccount(b64LogId));
-
           const fetchedCommitmentOne = await prismClient.getCommitment();
           const fetchedAccount = await prismClient.fetchAccount(b64LogId);
           const fetchedCommitmentTwo = await prismClient.getCommitment();
@@ -212,16 +173,14 @@ browser.webRequest.onHeadersReceived.addListener(
           if (fetchedCommitmentOne.commitment !== fetchedCommitmentTwo.commitment) {
             console.log("Commitments changed during account fetch, reload webpage")
           } else {
-            let prism_chain_validity = await verifyJmtProof(fetchedAccount.account.id, fetchedAccount.proof.leaf, fetchedAccount.proof.siblings, fetchedCommitmentTwo.commitment)
+            prism_chain_validity = await verifyJmtProof(fetchedAccount.account.id, fetchedAccount.proof.leaf, fetchedAccount.proof.siblings, fetchedCommitmentTwo.commitment)
             console.log("prism root verification successful")
           }
 
           const serializedData = atob(fetchedAccount['account']['signed_data']['0']['data']);
           // Parse the string into a JSON object
           const prismSTH = JSON.parse(serializedData);
-          // console.log(prismSTH['root_hash'])
           const rootHashPrism = b64EncodeBytes(prismSTH['root_hash']);
-          // const latestCommitmentHex = await prismClient.getCommitment();
 
           let logSth: CtSignedTreeHead;
           try {
@@ -245,7 +204,7 @@ browser.webRequest.onHeadersReceived.addListener(
             leafHash,
             prismSTH['root_hash']
           );
-          console.log("prismValidity:",prismSTHValidity);
+          console.log("Validity from prism network:",prismSTHValidity);
 
 
           const expectedRootHash = b64DecodeBytes(logSth.sha256_root_hash);
