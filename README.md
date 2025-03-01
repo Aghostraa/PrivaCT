@@ -64,29 +64,7 @@ In the project directory
 
 ### Run full node and CT-Service
 
-To run the browser extension it is necessary to run a Prism full node locally. This can be done using the following steps:
-
-```sh
-    git clone https://github.com/deltadevsde/prism-service-example
-```
-```sh
-    cd prism-service-example
-```
-```sh
-    cargo run
-```
-
-Next we need to run a service which fetches CT logs and puts them in Prism. This can be done by using the following commands:
-
-```sh
-    git clone https://github.com/MmithridatesS/ct-service-v2.git
-```
-```sh
-    cd ct-service-v2
-```
-```sh
-    cargo run
-```
+Go to the following repo and follow the instructions given: https://github.com/MmithridatesS/PrivaCT-service
 
 Once the service is run it needs some time to set up the accounts of CT log providers. In the real world scenario the service 
 would be running in the backend, thereby freeing the user of these steps. 
