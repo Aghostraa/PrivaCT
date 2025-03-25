@@ -6,9 +6,9 @@
 
 ## **Background** 📖  
 
-When you visit a website, your browser establishes a secure connection using TLS certificates issued by trusted Certificate Authorities (CAs). These certificates verify the site’s authenticity. However, CAs have a history of being compromised or issuing certificates improperly, leading to risks like man-in-the-middle attacks, phishing sites appearing legitimate, or even government surveillance programs exploiting misissued certificates.  
+When you visit a website, your browser establishes a secure connection using TLS certificates issued by trusted Certificate Authorities (CAs). These certificates verify the site’s authenticity. However, CAs have a history of being compromised or issuing certificates improperly, leading to risks like man-in-the-middle attacks, phishing sites appearing legitimate, or even government surveillance programs exploiting misissued certificates. 
 
-To address these issues, **Certificate Transparency (CT)** was introduced. CT requires that every certificate issued by a CA be publicly logged in an append-only, tamper-proof transparency log. But here’s the catch: as a user, how do you know if the certificate you’re seeing has actually been logged in one of these transparency logs? This is where **PrivaCT** steps in.  
+To address these issues, **Certificate Transparency (CT)** was introduced. CT requires that every certificate issued by a CA be publicly logged in an append-only, tamper-proof transparency log. But here’s the catch: The browser only verify that a promise of Certificate Inclusion is there from the Certificate Authority and the inclusion is never enforced. As a user, how do you know if the certificate you’re seeing has actually been logged in one of these transparency logs? This is where **PrivaCT** steps in.  
 
 ---
 
@@ -44,7 +44,7 @@ Here’s how the extension works:
 
 ---
 
-PrivaCT bridges the gap between Certificate Transparency and user trust, ensuring a safer and more transparent browsing experience.
+PrivaCT bridges the gap between Certificate Transparency and user trust, ensuring safer, more private and more transparent browsing experience.
 
 ## Development setup 👨‍💻
 
